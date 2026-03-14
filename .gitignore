@@ -1,0 +1,8 @@
+.env
+tokens.json
+licenses.json
+__pycache__/
+*.pyc
+.DS_Store
+venv/
+.venv/
