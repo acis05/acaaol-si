@@ -312,15 +312,15 @@ if ($("btnLogin")) {
     clearNotify();
 
     try {
-      const code = $("code")?.value?.trim() || "";
-      const pin = $("pin")?.value?.trim() || "";
+      const email = $("email")?.value?.trim() || "";
+      const password = $("password")?.value?.trim() || "";
 
-      const res = await postJson("/api/login", { code, pin }, false);
+      const res = await postJson("/api/login", { email, password }, false);
       token = res.token;
       sessionStorage.setItem("app_token", token);
 
       if ($("customerInfo")) {
-        $("customerInfo").textContent = "Customer: " + (res.customer_name || "-");
+        $("customerInfo").textContent = "Customer: " + (res.customer_name || "-") + (res.email ? " · " + res.email : "");
       }
 
       setText("loginStatus", "Login OK");
