@@ -7,141 +7,220 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
-  <div class="app">
-    <header class="topbar">
-      <div class="brand">
-        <span class="dot"></span>
-        <div>
-          <div class="title">ACA-AOL</div>
-          <div class="subtitle" id="moduleName">Sales Invoice (Excel → Accurate)</div>
+  <div class="app-shell">
+
+    <!-- LOGIN VIEW -->
+    <section id="loginView" class="login-page">
+      <div class="login-hero">
+        <div class="brand-mark">
+          <span class="brand-dot"></span>
+          <div>
+            <div class="brand-title">ACA-AOL</div>
+            <div class="brand-subtitle">Sales Invoice Importer</div>
+          </div>
+        </div>
+
+        <h1>Import Sales Invoice ke Accurate Online dengan lebih rapi.</h1>
+        <p>
+          Upload Excel, validasi transaksi, pilih database Accurate, lalu impor invoice tanpa melihat detail teknis yang membingungkan.
+        </p>
+
+        <div class="login-highlights">
+          <div class="mini-card">
+            <strong>Excel Ready</strong>
+            <span>Template kolom sudah disiapkan</span>
+          </div>
+          <div class="mini-card">
+            <strong>OAuth Accurate</strong>
+            <span>Koneksi database aman</span>
+          </div>
+          <div class="mini-card">
+            <strong>Ringkasan Jelas</strong>
+            <span>Total sukses dan gagal langsung terlihat</span>
+          </div>
         </div>
       </div>
 
-      <div class="topbar-actions">
-        <button id="themeToggle" class="btn ghost" type="button">Dark / Clear</button>
+      <div class="login-card">
+        <button id="themeToggle" class="theme-pill" type="button">Dark / Clear</button>
+
+        <div class="login-card-head">
+          <div class="eyebrow">Akses Aplikasi</div>
+          <h2>Masuk ke ACA-AOL SI</h2>
+          <p>Gunakan email dan password yang sudah terdaftar.</p>
+        </div>
+
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" type="email" placeholder="nama@email.com" autocomplete="username">
+        </div>
+
+        <div class="field">
+          <label for="password">Password</label>
+          <input id="password" type="password" placeholder="••••••••" autocomplete="current-password">
+        </div>
+
+        <button id="btnLogin" class="btn full" type="button">Masuk</button>
+        <div id="loginStatus" class="status-text"></div>
+        <div id="customerInfo" class="status-text muted"></div>
       </div>
-    </header>
+    </section>
 
-    <main class="grid">
-
-      <!-- 1) LOGIN -->
-      <section class="card span2">
-        <div class="card-head">
-          <h2>1) Login</h2>
-          <span class="step-badge">Akses Aplikasi</span>
-        </div>
-
-        <div class="row">
-          <div class="field">
-            <label for="email">Email</label>
-            <input id="email" type="email" placeholder="nama@email.com" autocomplete="username">
-          </div>
-
-          <div class="field">
-            <label for="password">Password</label>
-            <input id="password" type="password" placeholder="••••••••" autocomplete="current-password">
+    <!-- APP VIEW -->
+    <section id="appView" class="workspace hidden">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-dot"></span>
+          <div>
+            <div class="title">ACA-AOL</div>
+            <div class="subtitle">Sales Invoice (Excel → Accurate)</div>
           </div>
         </div>
 
-        <div class="row" style="margin-top:10px">
-          <button id="btnLogin" class="btn" type="button">Masuk</button>
-          <div id="loginStatus" class="hint" style="margin-left:10px"></div>
+        <div class="topbar-actions">
+          <div id="aoStatus" class="status-pill">Memuat status...</div>
+          <button id="btnAppLogout" class="btn ghost small" type="button">Keluar</button>
         </div>
+      </header>
 
-        <div id="customerInfo" class="hint"></div>
-      </section>
+      <main class="dashboard-grid">
 
-      <!-- 2) CONNECT + DB -->
-      <section class="card span2">
-        <div class="card-head">
-          <h2>2) Connect Accurate & Pilih Database</h2>
-          <span class="step-badge">OAuth & Database</span>
-        </div>
-
-        <div class="row row-gap">
-          <a id="btnConnectAO" href="/oauth/start" class="btn">Connect Accurate</a>
-          <button id="btnLoadDb" class="btn ghost" type="button" disabled>Load Database</button>
-          <button id="btnUseDb" class="btn ghost" type="button" disabled>Use Database</button>
-          <button id="btnLogoutAO" class="btn ghost" type="button">Logout Accurate</button>
-        </div>
-
-        <div class="field" style="margin-top:12px">
-          <label for="dbSelect">Pilih Database</label>
-          <select id="dbSelect">
-            <option value="">-- klik Load Database dulu --</option>
-          </select>
-        </div>
-
-        <div id="aoStatus" class="hint" style="margin-top:10px"></div>
-
-        <div class="hint" style="margin-top:8px">
-          Urutan: Connect Accurate → Load Database → pilih database → Use Database
-        </div>
-      </section>
-
-      <!-- 3) UPLOAD -->
-      <section class="card span2">
-        <div class="card-head">
-          <h2>3) Upload Excel</h2>
-          <span class="step-badge">Template & File</span>
-        </div>
-
-        <div class="row row-gap">
-          <input id="file" type="file" accept=".xlsx,.xls">
-          <a class="btn ghost" href="/api/template">Download Template</a>
-          <button id="btnResetFile" class="btn ghost" type="button">Reset File</button>
-        </div>
-
-        <div class="hint" style="margin-top:8px">
-          Header wajib minimal: CUSTOMERNO, TRANSDATE, ITEMNO, UNITPRICE, QTY
-        </div>
-
-        <div class="hint" style="margin-top:6px">
-          Gunakan template Sales Invoice agar urutan dan nama kolom sesuai dengan builder ACA-AOL SI.
-        </div>
-      </section>
-
-      <!-- 4) BUILD & IMPORT -->
-      <section class="card span2">
-        <div class="card-head">
-          <h2>4) Build & Import</h2>
-          <span class="step-badge">Proses Import</span>
-        </div>
-
-        <div class="row row-gap">
-          <button id="btnBuild" class="btn ghost" type="button" disabled>Build Payload</button>
-          <button id="btnImport" class="btn" type="button" disabled>Import ke Accurate</button>
-        </div>
-
-        <div id="summary" class="hint" style="margin-top:10px"></div>
-
-        <div id="notifyBox" class="notify hidden">
-          <div class="notify-head">
-            <div id="notifyTitle" class="notify-title"></div>
-            <button id="notifyClose" class="notify-close" type="button" aria-label="Tutup notifikasi">✕</button>
+        <section class="welcome-card span2">
+          <div>
+            <div class="eyebrow">Dashboard</div>
+            <h1>Import Sales Invoice</h1>
+            <p>Ikuti 3 langkah: koneksi Accurate, upload Excel, lalu impor invoice.</p>
           </div>
-          <div id="notifyBody" class="notify-body"></div>
-        </div>
+          <div class="module-badge">Module: Sales Invoice</div>
+        </section>
 
-        <pre id="log" class="log"></pre>
-      </section>
+        <section class="card">
+          <div class="card-head">
+            <div>
+              <div class="step-num">01</div>
+              <h2>Koneksi Accurate</h2>
+            </div>
+            <span id="connectionBadge" class="badge neutral">Belum siap</span>
+          </div>
 
-    </main>
+          <p class="card-desc">Hubungkan akun Accurate dan pilih database tujuan.</p>
 
-    <footer class="footer">
-      <span>Theme: Dark/Clear</span>
-      <span>·</span>
-      <span>Accent: Orange</span>
-      <span>·</span>
-      <span>Python Flask</span>
-      <span>·</span>
-      <span>Module: Sales Invoice</span>
-    </footer>
+          <div class="action-stack">
+            <a id="btnConnectAO" href="/oauth/start" class="btn">Connect Accurate</a>
+            <button id="btnLoadDb" class="btn ghost" type="button" disabled>Load Database</button>
+          </div>
+
+          <div class="field compact">
+            <label for="dbSelect">Database</label>
+            <select id="dbSelect">
+              <option value="">-- klik Load Database dulu --</option>
+            </select>
+          </div>
+
+          <div class="action-stack">
+            <button id="btnUseDb" class="btn ghost" type="button" disabled>Gunakan Database</button>
+            <button id="btnLogoutAO" class="btn subtle" type="button">Logout Accurate</button>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <div>
+              <div class="step-num">02</div>
+              <h2>Upload Excel</h2>
+            </div>
+            <span id="fileBadge" class="badge neutral">Belum ada file</span>
+          </div>
+
+          <p class="card-desc">Gunakan template agar nama kolom sesuai dengan format Sales Invoice.</p>
+
+          <div class="upload-box">
+            <input id="file" type="file" accept=".xlsx,.xls">
+            <span id="fileName">Belum ada file dipilih</span>
+          </div>
+
+          <div class="action-stack">
+            <a class="btn ghost" href="/api/template">Download Template</a>
+            <button id="btnResetFile" class="btn subtle" type="button">Reset File</button>
+          </div>
+
+          <div class="helper-note">
+            Header wajib minimal: <strong>CUSTOMERNO</strong>, <strong>TRANSDATE</strong>, <strong>ITEMNO</strong>, <strong>UNITPRICE</strong>, <strong>QTY</strong>
+          </div>
+        </section>
+
+        <section class="card span2">
+          <div class="card-head">
+            <div>
+              <div class="step-num">03</div>
+              <h2>Validasi & Import</h2>
+            </div>
+            <span id="processBadge" class="badge neutral">Menunggu file</span>
+          </div>
+
+          <p class="card-desc">Sistem akan mengecek isi Excel, lalu menampilkan ringkasan sebelum dan sesudah impor.</p>
+
+          <div class="action-row">
+            <button id="btnBuild" class="btn ghost" type="button" disabled>Cek File</button>
+            <button id="btnImport" class="btn" type="button" disabled>Import ke Accurate</button>
+          </div>
+
+          <div id="summary" class="summary-line"></div>
+
+          <div id="resultPanel" class="result-panel hidden">
+            <div class="result-grid">
+              <div class="result-stat">
+                <span>Total Invoice</span>
+                <strong id="statTotal">0</strong>
+              </div>
+              <div class="result-stat ok">
+                <span>Sukses</span>
+                <strong id="statSuccess">0</strong>
+              </div>
+              <div class="result-stat fail">
+                <span>Gagal</span>
+                <strong id="statFailed">0</strong>
+              </div>
+            </div>
+
+            <div id="failureNote" class="failure-note hidden">
+              <div class="note-head">
+                <div>
+                  <h3>Catatan gagal</h3>
+                  <p>Salin catatan ini untuk diperbaiki atau dikirim ke tim support.</p>
+                </div>
+                <button id="btnCopyFailures" class="btn ghost small" type="button">Copy Catatan</button>
+              </div>
+              <textarea id="failureText" readonly></textarea>
+            </div>
+          </div>
+
+          <div id="notifyBox" class="notify hidden">
+            <div class="notify-head">
+              <div id="notifyTitle" class="notify-title"></div>
+              <button id="notifyClose" class="notify-close" type="button" aria-label="Tutup notifikasi">✕</button>
+            </div>
+            <div id="notifyBody" class="notify-body"></div>
+          </div>
+
+          <pre id="log" class="log visually-hidden" aria-hidden="true"></pre>
+        </section>
+
+      </main>
+
+      <footer id="appFooter" class="footer">
+        <span>ACA-AOL Sales Invoice</span>
+        <span>·</span>
+        <span>Python Flask</span>
+        <span>·</span>
+        <span>Accurate Online</span>
+      </footer>
+    </section>
   </div>
 
   <script src="/static/app.js"></script>

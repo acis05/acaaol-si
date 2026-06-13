@@ -43,6 +43,60 @@ function escapeHtml(text) {
     .replaceAll("'", "&#039;");
 }
 
+function setBadge(id, text, type = "neutral") {
+  const el = $(id);
+  if (!el) return;
+  el.textContent = text;
+  el.className = `badge ${type}`;
+}
+
+function showResultPanel(summary = {}, results = []) {
+  const panel = $("resultPanel");
+  if (panel) panel.classList.remove("hidden");
+
+  const total = summary.total ?? summary.transactions ?? results.length ?? 0;
+  const success = summary.success ?? 0;
+  const failed = summary.failed ?? 0;
+
+  setText("statTotal", total);
+  setText("statSuccess", success);
+  setText("statFailed", failed);
+
+  const failedItems = results.filter(x => !x.ok);
+  const note = $("failureNote");
+  const text = $("failureText");
+
+  if (failedItems.length > 0) {
+    const lines = [];
+    lines.push("CATATAN GAGAL IMPORT SALES INVOICE");
+    lines.push("==================================");
+    failedItems.forEach((x, idx) => {
+      lines.push("");
+      lines.push(`${idx + 1}. Invoice: ${x.number || "-"} | Tanggal: ${x.transDate || "-"}`);
+      const errors = Array.isArray(x.errors) && x.errors.length ? x.errors : ["Tidak ada detail error dari Accurate."];
+      errors.forEach(err => lines.push(`   - ${err}`));
+    });
+
+    if (note) note.classList.remove("hidden");
+    if (text) text.value = lines.join("\n");
+  } else {
+    if (note) note.classList.add("hidden");
+    if (text) text.value = "";
+  }
+}
+
+function clearResultPanel() {
+  const panel = $("resultPanel");
+  if (panel) panel.classList.add("hidden");
+  setText("statTotal", "0");
+  setText("statSuccess", "0");
+  setText("statFailed", "0");
+  const note = $("failureNote");
+  const text = $("failureText");
+  if (note) note.classList.add("hidden");
+  if (text) text.value = "";
+}
+
 // ======================
 // Notify helpers
 // ======================
@@ -80,62 +134,28 @@ function renderSimpleMessage(lines = []) {
   `;
 }
 
-function renderImportSummary(summary = {}, results = []) {
-  const okItems = results.filter(x => x.ok);
-  const failItems = results.filter(x => !x.ok);
-
-  const okHtml = okItems.length
-    ? `
-      <div class="notify-section">
-        <div class="notify-section-title">Berhasil</div>
-        ${okItems.map(x => `
-          <div class="notify-item ok">
-            <div class="notify-meta">✔ ${escapeHtml(x.number || "-")} • ${escapeHtml(x.transDate || "-")}</div>
-          </div>
-        `).join("")}
-      </div>
-    `
-    : "";
-
-  const failHtml = failItems.length
-    ? `
-      <div class="notify-section">
-        <div class="notify-section-title">Gagal</div>
-        ${failItems.map(x => `
-          <div class="notify-item fail">
-            <div class="notify-meta">✘ ${escapeHtml(x.number || "-")} • ${escapeHtml(x.transDate || "-")}</div>
-            <ul class="notify-errors">
-              ${(x.errors || []).map(err => `<li>${escapeHtml(err)}</li>`).join("")}
-            </ul>
-          </div>
-        `).join("")}
-      </div>
-    `
-    : "";
-
-  return `
-    <div class="import-summary">
-      <div class="sum-item">
-        <span>Total</span>
-        <strong>${summary.total || 0}</strong>
-      </div>
-      <div class="sum-item ok">
-        <span>Berhasil</span>
-        <strong>${summary.success || 0}</strong>
-      </div>
-      <div class="sum-item fail">
-        <span>Gagal</span>
-        <strong>${summary.failed || 0}</strong>
-      </div>
-    </div>
-    ${okHtml}
-    ${failHtml}
-  `;
-}
-
 const notifyClose = $("notifyClose");
 if (notifyClose) {
   notifyClose.onclick = () => clearNotify();
+}
+
+const btnCopyFailures = $("btnCopyFailures");
+if (btnCopyFailures) {
+  btnCopyFailures.onclick = async () => {
+    const text = $("failureText")?.value || "";
+    if (!text) return;
+
+    try {
+      await navigator.clipboard.writeText(text);
+      btnCopyFailures.textContent = "Tersalin";
+      setTimeout(() => btnCopyFailures.textContent = "Copy Catatan", 1200);
+    } catch {
+      $("failureText")?.select();
+      document.execCommand("copy");
+      btnCopyFailures.textContent = "Tersalin";
+      setTimeout(() => btnCopyFailures.textContent = "Copy Catatan", 1200);
+    }
+  };
 }
 
 // ======================
@@ -157,14 +177,28 @@ function isDbReady() {
   return !!ao.has_session;
 }
 
+function updateViewByLogin() {
+  const loggedIn = isLoggedIn();
+
+  if ($("loginView")) {
+    $("loginView").classList.toggle("hidden", loggedIn);
+  }
+
+  if ($("appView")) {
+    $("appView").classList.toggle("hidden", !loggedIn);
+  }
+}
+
 function updateUI() {
+  updateViewByLogin();
+
   const loggedIn = isLoggedIn();
   const fileReady = isFileReady();
   const payloadReady = isPayloadReady();
   const dbReady = isDbReady();
   const oauthReady = !!ao.has_token;
 
-  if ($("btnBuild")) $("btnBuild").disabled = !fileReady;
+  if ($("btnBuild")) $("btnBuild").disabled = !(loggedIn && fileReady);
   if ($("btnImport")) $("btnImport").disabled = !(loggedIn && dbReady && payloadReady);
   if ($("btnLoadDb")) $("btnLoadDb").disabled = !oauthReady;
 
@@ -172,6 +206,24 @@ function updateUI() {
     const sel = $("dbSelect");
     const hasSelectedDb = !!(sel && sel.value && String(sel.value).trim() !== "");
     $("btnUseDb").disabled = !(oauthReady && hasSelectedDb);
+  }
+
+  if (oauthReady && dbReady) {
+    setBadge("connectionBadge", "Database aktif", "ok");
+  } else if (oauthReady) {
+    setBadge("connectionBadge", "OAuth siap", "info");
+  } else {
+    setBadge("connectionBadge", "Belum connect", "neutral");
+  }
+
+  setBadge("fileBadge", fileReady ? "File dipilih" : "Belum ada file", fileReady ? "ok" : "neutral");
+
+  if (payloadReady) {
+    setBadge("processBadge", "Siap import", "ok");
+  } else if (fileReady) {
+    setBadge("processBadge", "Perlu cek file", "info");
+  } else {
+    setBadge("processBadge", "Menunggu file", "neutral");
   }
 
   const status = [];
@@ -185,8 +237,10 @@ function resetExcelState() {
   selectedFile = null;
   builtPayload = null;
   if ($("file")) $("file").value = "";
+  setText("fileName", "Belum ada file dipilih");
   setSummary("");
   clearNotify();
+  clearResultPanel();
   updateUI();
 }
 
@@ -323,8 +377,8 @@ if ($("btnLogin")) {
         $("customerInfo").textContent = "Customer: " + (res.customer_name || "-") + (res.email ? " · " + res.email : "");
       }
 
-      setText("loginStatus", "Login OK");
-      log("Login berhasil.");
+      setText("loginStatus", "Login berhasil");
+      updateUI();
 
       await fetchAoStatus();
     } catch (e) {
@@ -336,10 +390,32 @@ if ($("btnLogin")) {
         $("customerInfo").textContent = "";
       }
 
-      log("Login gagal: " + e.message);
-      showNotify("error", "Login gagal", renderSimpleMessage([e.message]));
       updateUI();
     }
+  };
+}
+
+["email", "password"].forEach((id) => {
+  const el = $(id);
+  if (el) {
+    el.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && $("btnLogin")) {
+        $("btnLogin").click();
+      }
+    });
+  }
+});
+
+if ($("btnAppLogout")) {
+  $("btnAppLogout").onclick = () => {
+    token = null;
+    sessionStorage.removeItem("app_token");
+    resetExcelState();
+    clearNotify();
+    clearLog();
+    setText("loginStatus", "");
+    setText("customerInfo", "");
+    updateUI();
   };
 }
 
@@ -349,15 +425,16 @@ if ($("btnLogin")) {
 if ($("file")) {
   $("file").addEventListener("change", (e) => {
     clearNotify();
+    clearResultPanel();
 
     selectedFile = e.target.files?.[0] || null;
     builtPayload = null;
     setSummary("");
 
     if (selectedFile) {
-      log(`File dipilih: ${selectedFile.name}`);
+      setText("fileName", selectedFile.name);
     } else {
-      log("Tidak ada file dipilih.");
+      setText("fileName", "Belum ada file dipilih");
     }
 
     updateUI();
@@ -370,7 +447,6 @@ if ($("file")) {
 if ($("btnResetFile")) {
   $("btnResetFile").onclick = () => {
     resetExcelState();
-    log("File di-reset.");
   };
 }
 
@@ -381,7 +457,6 @@ if ($("btnLoadDb")) {
   $("btnLoadDb").onclick = async () => {
     try {
       clearNotify();
-      log("Load DB list...");
 
       const res = await getJson("/api/db-list");
       const arr = res?.response?.d || [];
@@ -404,17 +479,15 @@ if ($("btnLoadDb")) {
         });
       }
 
-      log(`DB list loaded: ${arr.length} database.`);
       updateUI();
 
       if (arr.length === 0) {
-        showNotify("info", "Database kosong", renderSimpleMessage(["Tidak ada database yang muncul di akun ini."]));
+        showNotify("info", "Database tidak ditemukan", renderSimpleMessage(["Tidak ada database yang muncul di akun ini."]));
       } else {
-        showNotify("info", "Database berhasil dimuat", renderSimpleMessage([`Total database: ${arr.length}`]));
+        showNotify("info", "Database berhasil dimuat", renderSimpleMessage([`Total database: ${arr.length}. Silakan pilih database tujuan.`]));
       }
     } catch (e) {
-      log("DB list gagal: " + e.message);
-      showNotify("error", "Load DB gagal", renderSimpleMessage([e.message]));
+      showNotify("error", "Load database gagal", renderSimpleMessage([e.message]));
     }
   };
 }
@@ -442,17 +515,12 @@ if ($("btnUseDb")) {
 
       if (!id) throw new Error("Pilih database dulu");
 
-      log("Open DB...");
       const res = await postJson("/api/open-db", { id, alias }, false);
 
-      log("Open DB OK.");
-      log(JSON.stringify(res, null, 2));
-
       await fetchAoStatus();
-      showNotify("success", "Database aktif", renderSimpleMessage([alias || id]));
+      showNotify("success", "Database aktif", renderSimpleMessage([`Database siap digunakan: ${alias || id}`]));
     } catch (e) {
-      log("Open DB gagal: " + e.message);
-      showNotify("error", "Open DB gagal", renderSimpleMessage([e.message]));
+      showNotify("error", "Database gagal digunakan", renderSimpleMessage([e.message]));
     }
   };
 }
@@ -475,12 +543,12 @@ if ($("btnLogoutAO")) {
 
       builtPayload = null;
       setSummary("");
-      log("Logout Accurate berhasil.");
+      clearResultPanel();
       updateUI();
 
-      showNotify("success", "Logout Accurate berhasil", renderSimpleMessage(["Silakan Connect lagi untuk akun lain."]));
+      showNotify("success", "Logout Accurate berhasil", renderSimpleMessage(["Silakan Connect lagi untuk akun Accurate lain."]));
     } catch (e) {
-      showNotify("error", "Logout gagal", renderSimpleMessage([e.message]));
+      showNotify("error", "Logout Accurate gagal", renderSimpleMessage([e.message]));
     }
   };
 }
@@ -492,6 +560,7 @@ if ($("btnBuild")) {
   $("btnBuild").onclick = async () => {
     try {
       clearNotify();
+      clearResultPanel();
 
       if (!token) throw new Error("Login dulu");
       if (!selectedFile) throw new Error("Pilih file Excel dulu");
@@ -499,24 +568,25 @@ if ($("btnBuild")) {
       const fd = new FormData();
       fd.append("file", selectedFile);
 
-      log("Build payload Sales Invoice dari Excel...");
+      setSummary("Sedang mengecek file...");
       const res = await postForm("/api/build-sales-invoice", fd);
 
       builtPayload = res.payload;
 
-      const summaryText = `Siap import: ${res.summary.transactions} transaksi, ${res.summary.lines} baris item.`;
-      setSummary(summaryText);
-
-      log("Build OK.");
-      log(JSON.stringify(res.summary, null, 2));
+      setSummary(`File siap diimport: ${res.summary.transactions} invoice, ${res.summary.lines} item.`);
+      showResultPanel({
+        total: res.summary.transactions,
+        success: 0,
+        failed: 0
+      }, []);
 
       showNotify(
-        "info",
-        "Build berhasil",
+        "success",
+        "File siap diimport",
         renderSimpleMessage([
-          `Jumlah transaksi: ${res.summary.transactions}`,
+          `Jumlah invoice: ${res.summary.transactions}`,
           `Jumlah item: ${res.summary.lines}`,
-          "Payload Sales Invoice siap di-import ke Accurate."
+          "Klik Import ke Accurate untuk melanjutkan."
         ])
       );
 
@@ -524,8 +594,8 @@ if ($("btnBuild")) {
     } catch (e) {
       builtPayload = null;
       setSummary("");
-      log("Build gagal: " + e.message);
-      showNotify("error", "Build Payload gagal", renderSimpleMessage([e.message]));
+      clearResultPanel();
+      showNotify("error", "File belum bisa diproses", renderSimpleMessage([e.message]));
       updateUI();
     }
   };
@@ -541,53 +611,58 @@ if ($("btnImport")) {
 
       if (!token) throw new Error("Login dulu");
       if (!ao.has_session) throw new Error("Pilih DB dulu");
-      if (!builtPayload) throw new Error("Build payload dulu");
+      if (!builtPayload) throw new Error("Cek file dulu");
 
-      log("Mengirim Sales Invoice ke Accurate...");
+      setSummary("Sedang mengimport Sales Invoice ke Accurate...");
       const res = await postJson("/api/import-sales-invoice", { payload: builtPayload }, true);
 
       const summary = res.summary || {};
       const results = res.results || [];
       const hasFailed = (summary.failed || 0) > 0;
 
-      log("IMPORT SELESAI");
-      log(JSON.stringify(res, null, 2));
+      showResultPanel(summary, results);
+      setSummary(hasFailed ? "Import selesai, ada invoice yang perlu diperbaiki." : "Import berhasil. Semua invoice berhasil masuk ke Accurate.");
 
       showNotify(
         hasFailed ? "error" : "success",
-        hasFailed ? "Import selesai dengan beberapa kegagalan" : "Import berhasil",
-        renderImportSummary(summary, results)
+        hasFailed ? "Import selesai dengan catatan" : "Import berhasil",
+        renderSimpleMessage([
+          `Total invoice: ${summary.total || 0}`,
+          `Sukses: ${summary.success || 0}`,
+          `Gagal: ${summary.failed || 0}`
+        ])
       );
 
       if (!hasFailed) {
-        resetExcelState();
-        log("Semua Sales Invoice berhasil. Silakan pilih file baru untuk import berikutnya.");
+        selectedFile = null;
+        builtPayload = null;
+        if ($("file")) $("file").value = "";
+        setText("fileName", "Belum ada file dipilih");
       }
     } catch (e) {
-      log("IMPORT ERROR: " + e.message);
-
       const data = e.data || {};
       const summary = data.summary || {};
       const results = data.results || [];
 
       if (results.length > 0) {
+        showResultPanel(summary, results);
+        setSummary("Import selesai, ada invoice yang perlu diperbaiki.");
         showNotify(
           "error",
-          "Import selesai dengan beberapa kegagalan",
-          renderImportSummary(summary, results)
+          "Import selesai dengan catatan",
+          renderSimpleMessage([
+            `Total invoice: ${summary.total || 0}`,
+            `Sukses: ${summary.success || 0}`,
+            `Gagal: ${summary.failed || 0}`,
+            "Lihat Catatan gagal di bawah."
+          ])
         );
       } else if (data.response?.d) {
-        showNotify(
-          "error",
-          "Import gagal",
-          renderSimpleMessage(data.response.d)
-        );
+        setSummary("");
+        showNotify("error", "Import gagal", renderSimpleMessage(data.response.d));
       } else {
-        showNotify(
-          "error",
-          "Import gagal",
-          renderSimpleMessage([e.message])
-        );
+        setSummary("");
+        showNotify("error", "Import gagal", renderSimpleMessage([e.message]));
       }
     } finally {
       updateUI();
@@ -601,5 +676,7 @@ if ($("btnImport")) {
 window.addEventListener("load", async () => {
   token = sessionStorage.getItem("app_token") || null;
   updateUI();
-  await fetchAoStatus();
+  if (token) {
+    await fetchAoStatus();
+  }
 });
